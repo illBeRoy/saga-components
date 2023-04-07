@@ -9,7 +9,8 @@
   "readme": "../../README.md",
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
-    "test": "jest"
+    "test": "jest",
+    "publish": "rm -r dist && yarn build && yarn np --yolo"
   },
   "peerDependencies": {
     "react": "*",
