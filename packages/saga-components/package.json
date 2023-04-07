@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
     "test": "jest",
-    "publish": "yarn test && rm -r dist && yarn build && cp ../../README.md . && yarn np --yolo"
+    "release": "yarn test && rm -r dist && yarn build && cp ../../README.md . && yarn np --yolo"
   },
   "peerDependencies": {
     "react": "*",
