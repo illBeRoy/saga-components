@@ -1,12 +1,7 @@
 import { createNanoEvents } from 'nanoevents';
 import type { SagaComponentGenerator } from './SagaComponentGenerator';
 import { Memo, MemoCacheMiss } from './Memo';
-import {
-  ReplayableStateHistory,
-  State,
-  StateHistory,
-  extractState,
-} from './state';
+import { ReplayableStateHistory, extractState } from './state';
 
 export interface StateMachineOpts {
   memo: Memo;
@@ -21,7 +16,7 @@ export class StateMachine {
 
   private readonly generator: SagaComponentGenerator;
   private readonly memo: Memo;
-  private readonly stateHistory: StateHistory = [];
+  private readonly stateHistory: ReplayableStateHistory = [];
   private status: 'running' | 'paused' | 'terminated' = 'paused';
 
   constructor(generator: SagaComponentGenerator, opts: StateMachineOpts) {
@@ -57,7 +52,7 @@ export class StateMachine {
 
   view() {
     for (let i = this.stateHistory.length - 1; i >= 0; i -= 1) {
-      const state = this.stateHistory[i];
+      const state = extractState(this.stateHistory[i], this);
       if (state.view) {
         return state.view;
       }
@@ -78,7 +73,7 @@ export class StateMachine {
     const currentState = this.stateHistory.at(-1);
 
     const { value: yieldable, done } = this.generator.next(
-      currentState?.yieldedValue
+      currentState && extractState(currentState, this).yieldedValue
     );
 
     if (done) {
@@ -135,9 +130,9 @@ export class StateMachine {
             }),
           ]);
 
-        this.stateHistory.push({
-          yieldedValue: [yieldable.defaultValue, setStateFor(this)],
-        });
+        this.stateHistory.push((stateMachine) => ({
+          yieldedValue: [yieldable.defaultValue, setStateFor(stateMachine)],
+        }));
 
         this.ready();
         return;
