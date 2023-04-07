@@ -265,6 +265,27 @@ describe('SagaComponents', () => {
         expect(yieldedPromise).toHaveBeenCalledTimes(2);
       });
     });
+
+    it('should allow setting state multiple times (bug fix)', async () => {
+      const SagaComponent = createSagaComponent(function* () {
+        const [count, setCount]: State<number> = yield useState(0);
+        return (
+          <>
+            <span data-testid="text">count is: {count}</span>
+            <button data-testid="button" onClick={() => setCount(count + 1)}>
+              Plus One
+            </button>
+          </>
+        );
+      });
+
+      const output = renderComponent(<SagaComponent />);
+
+      await act(() => fireEvent.click(output.getByTestId('button')));
+      await act(() => fireEvent.click(output.getByTestId('button')));
+
+      expect(output.getByTestId('text').textContent).toEqual('count is: 2');
+    });
   });
 
   describe('Yielding Computations', () => {

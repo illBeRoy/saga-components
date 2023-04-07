@@ -1,11 +1,12 @@
 import { createNanoEvents } from 'nanoevents';
 import type { SagaComponentGenerator } from './SagaComponentGenerator';
 import { Memo, MemoCacheMiss } from './Memo';
-
-export interface State {
-  yieldedValue?: unknown;
-  view?: JSX.Element;
-}
+import {
+  ReplayableStateHistory,
+  State,
+  StateHistory,
+  extractState,
+} from './state';
 
 export interface StateMachineOpts {
   memo: Memo;
@@ -13,14 +14,14 @@ export interface StateMachineOpts {
 
 export class StateMachine {
   private readonly events = createNanoEvents<{
-    fork(stateHistory: State[]): void;
+    fork(replayableStateHistory: ReplayableStateHistory): void;
     readyToContinue(): void;
     done(): void;
   }>();
 
   private readonly generator: SagaComponentGenerator;
   private readonly memo: Memo;
-  private readonly stateHistory: State[] = [];
+  private readonly stateHistory: StateHistory = [];
   private status: 'running' | 'paused' | 'terminated' = 'paused';
 
   constructor(generator: SagaComponentGenerator, opts: StateMachineOpts) {
@@ -39,17 +40,19 @@ export class StateMachine {
     this.status = 'terminated';
   }
 
-  replay(stateHistory: State[]) {
-    if (stateHistory.length === 0) {
+  replay(replayableHistory: ReplayableStateHistory) {
+    if (replayableHistory.length === 0) {
       return;
     }
 
     this.generator.next();
-    for (const state of stateHistory.slice(0, -1)) {
+
+    for (const stateOrStateFactory of replayableHistory.slice(0, -1)) {
+      const state = extractState(stateOrStateFactory, this);
       this.generator.next(state.yieldedValue);
       this.stateHistory.push(state);
     }
-    this.stateHistory.push(stateHistory.at(-1)!);
+    this.stateHistory.push(extractState(replayableHistory.at(-1)!, this));
   }
 
   view() {
@@ -124,14 +127,16 @@ export class StateMachine {
       case 'state': {
         const stateHistoryReplica = [...this.stateHistory];
 
-        const setState = (value: unknown) =>
-          this.fork([
+        const setStateFor = (stateMachine: StateMachine) => (value: unknown) =>
+          stateMachine.fork([
             ...stateHistoryReplica,
-            { yieldedValue: [value, setState] },
+            (nextStateMachine) => ({
+              yieldedValue: [value, setStateFor(nextStateMachine)],
+            }),
           ]);
 
         this.stateHistory.push({
-          yieldedValue: [yieldable.defaultValue, setState],
+          yieldedValue: [yieldable.defaultValue, setStateFor(this)],
         });
 
         this.ready();
@@ -180,7 +185,7 @@ export class StateMachine {
     this.events.emit('done');
   }
 
-  private fork(stateHistory: State[]) {
+  private fork(stateHistory: ReplayableStateHistory) {
     this.events.emit('fork', stateHistory);
   }
 }

@@ -1,9 +1,10 @@
 import { ComponentType, useRef } from 'react';
 import { shallowEqualObjects } from 'shallow-equal';
 import type { SagaComponentFactory } from './SagaComponentGenerator';
-import { useRerender } from './rerender';
-import { State, StateMachine } from './StateMachine';
+import { StateMachine } from './StateMachine';
+import type { ReplayableStateHistory } from './state';
 import { Memo } from './Memo';
+import { useRerender } from './rerender';
 
 export function createSagaComponent<TProps extends {}>(
   SagaComponentGenerator: SagaComponentFactory<TProps>
@@ -21,7 +22,7 @@ export function createSagaComponent<TProps extends {}>(
       }
     }
 
-    function forkStateMachine(stateHistory?: State[]) {
+    function forkStateMachine(stateHistory?: ReplayableStateHistory) {
       stateMachine.current?.terminate();
 
       stateMachine.current = new StateMachine(SagaComponentGenerator(props), {
